@@ -1,5 +1,6 @@
+
 import React, { useEffect, useRef, useState } from 'react';
-import { Heart, Zap, Terminal, Send, Brain, Thermometer, Radio } from 'lucide-react';
+import { Heart, Zap, Terminal, Send, Brain, Thermometer, Radio, Volume2, VolumeX } from 'lucide-react';
 
 interface Particle {
   x: number;
@@ -36,6 +37,81 @@ const DigitalSoul: React.FC = () => {
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+
+  // Audio Context Ref
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Initialize Audio Context on user interaction (browser policy)
+  const initAudio = () => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
+  };
+
+  // Synthetic Sound Effect (Glitch/Beep)
+  const playSound = (type: 'type' | 'process' | 'error') => {
+    if (isMuted) return;
+    initAudio();
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+
+    if (type === 'type') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      osc.start(now);
+      osc.stop(now + 0.05);
+    } else if (type === 'process') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    }
+  };
+
+  // Text to Speech Function
+  const speak = (text: string) => {
+    if (isMuted) return;
+    
+    // Cancel previous speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.pitch = 0.6; // Deep/Robotic pitch
+    utterance.rate = 1.0; 
+    utterance.volume = 0.8;
+
+    // Try to select a robotic or system voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => 
+      v.name.toLowerCase().includes('google us english') || 
+      v.name.toLowerCase().includes('samantha') || 
+      v.name.toLowerCase().includes('david')
+    );
+    if (preferredVoice) utterance.voice = preferredVoice;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    
+    window.speechSynthesis.speak(utterance);
+  };
 
   // --- Realtime Vitals & Logs Simulation ---
   useEffect(() => {
@@ -262,11 +338,14 @@ const DigitalSoul: React.FC = () => {
   const handleSend = () => {
     if (!input.trim()) return;
     
+    playSound('type');
+
     // Add user message
     const userMsg = input;
     setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
     setInput('');
     setIsProcessing(true);
+    playSound('process');
 
     // Simulate AI thinking and response
     setTimeout(() => {
@@ -277,14 +356,13 @@ const DigitalSoul: React.FC = () => {
         else if (lower.includes('status') || lower.includes('health')) response = `System nominal. Heart Rate: ${heartRate} BPM. Brain freq: ${brainFreq} Hz. Core Temp: ${sysTemp}°C.`;
         else if (lower.includes('who are you')) response = "I am the visual manifestation of the system's kernel. The Digital Soul.";
         else if (lower.includes('error')) response = "Scanning for errors... None found in core logic. Checking peripheral subroutines.";
+        else if (lower.includes('scan')) response = "Initiating scan protocol... Target sector clear.";
         
         setChatHistory(prev => [...prev, { role: 'soul', text: response }]);
         setIsProcessing(false);
         
-        // Trigger speaking animation
-        setIsSpeaking(true);
-        const speakingDuration = Math.min(5000, response.length * 50); // dynamic duration
-        setTimeout(() => setIsSpeaking(false), speakingDuration);
+        // Trigger speaking audio and animation
+        speak(response);
 
         // Scroll to bottom
         setTimeout(() => {
@@ -381,7 +459,16 @@ const DigitalSoul: React.FC = () => {
                          <Radio size={14} className={isSpeaking ? "animate-pulse text-green-300" : ""} />
                          <span className="font-orbitron text-xs">NEURAL_LINK_V2</span>
                      </div>
-                     <div className="text-[9px] text-green-700 font-mono">AES-256 ENCRYPTED</div>
+                     <div className="flex items-center gap-3">
+                         <div className="text-[9px] text-green-700 font-mono hidden md:block">AES-256 ENCRYPTED</div>
+                         <button 
+                             onClick={() => setIsMuted(!isMuted)} 
+                             className={`text-green-500 hover:text-white transition-colors ${isMuted ? 'opacity-50' : 'opacity-100'}`}
+                             title={isMuted ? "Unmute Audio" : "Mute Audio"}
+                         >
+                             {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                         </button>
+                     </div>
                 </div>
 
                 {/* Messages */}
@@ -416,6 +503,7 @@ const DigitalSoul: React.FC = () => {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
+                        onFocus={() => initAudio()}
                         placeholder="Initialize data transfer..."
                         className="flex-1 bg-gray-900/30 border border-green-900/50 rounded px-3 py-2 text-xs text-green-300 focus:outline-none focus:border-green-500/70 font-mono placeholder-green-900"
                     />
