@@ -21,14 +21,14 @@ import WorldMap from './components/WorldMap';
 import DigitalSoul from './components/DigitalSoul';
 import TargetList from './components/TargetList';
 import CodeEditor from './components/CodeEditor';
-import LoginScreen from './components/LoginScreen'; // Import Login
+import LoginScreen from './components/LoginScreen'; 
 import { TabType, LogEntry, Tool } from './types';
 
 // --- Main App Component ---
 const App: React.FC = () => {
   // Login State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState('OPERATOR');
+  const [username, setUsername] = useState('');
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -186,10 +186,14 @@ const App: React.FC = () => {
 
       {/* Mobile Navigation Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-black/95 md:hidden flex flex-col animate-fade-in">
-          <div className="flex justify-end p-4 border-b border-green-900">
-             <button onClick={() => setIsMobileMenuOpen(false)} className="text-white hover:text-green-500">
-               <X size={32} />
+        <div className="fixed inset-0 z-50 bg-black/95 md:hidden flex flex-col animate-in fade-in slide-in-from-left-10 duration-200">
+          <div className="flex justify-between items-center p-4 border-b border-green-900">
+             <div className="flex items-center gap-2">
+                 <Shield size={20} className="text-green-500" />
+                 <span className="font-orbitron font-bold">MENU</span>
+             </div>
+             <button onClick={() => setIsMobileMenuOpen(false)} className="text-white hover:text-green-500 p-1 border border-transparent hover:border-green-500 rounded transition-all">
+               <X size={24} />
              </button>
           </div>
           <div className="p-4 overflow-y-auto flex-1">
@@ -208,7 +212,7 @@ const App: React.FC = () => {
           </div>
           
           <div className="hidden md:flex items-center gap-4 text-xs font-mono ml-auto">
-             <div className="flex items-center gap-2 text-gray-400">
+             <div className="flex items-center gap-2 text-gray-400 bg-gray-900/50 px-2 py-1 rounded border border-green-900/30">
                  <User size={14} />
                  <span>OPERATOR: <span className="text-green-400 font-bold uppercase">{username}</span></span>
              </div>
@@ -219,8 +223,8 @@ const App: React.FC = () => {
              </div>
           </div>
 
-          <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-green-500 hover:text-white transition-colors">
-            <Menu size={28} />
+          <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-green-500 hover:text-white transition-colors bg-green-900/20 p-2 rounded border border-green-900/50">
+            <Menu size={24} />
           </button>
         </header>
 
