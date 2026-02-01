@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Heart, Zap, Terminal, Send, Brain, Thermometer, Radio, Volume2, VolumeX } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 
 interface Particle {
   x: number;
@@ -33,7 +33,7 @@ const DigitalSoul: React.FC = () => {
   const [logs, setLogs] = useState<LogData[]>([]);
   const [input, setInput] = useState('');
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'soul', text: string}[]>([
-    { role: 'soul', text: "Identity confirmed. I am the Digital Soul (Gemini Core). Uplink established." }
+    { role: 'soul', text: "Identity confirmed. I am the Digital Soul (OpenAI Core). Uplink established." }
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -337,7 +337,7 @@ const DigitalSoul: React.FC = () => {
     };
   }, [isSpeaking]);
 
-  // --- Chat Logic with Gemini ---
+  // --- Chat Logic with OpenAI ---
   const handleSend = async () => {
     if (!input.trim() || isProcessing) return;
     
@@ -354,8 +354,11 @@ const DigitalSoul: React.FC = () => {
         let responseText = "Communication Error. Neural link unstable.";
 
         if (process.env.API_KEY) {
-            // Fix: Switch to Google GenAI Client
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            // Fix: Initialize OpenAI
+            const openai = new OpenAI({
+                apiKey: process.env.API_KEY,
+                dangerouslyAllowBrowser: true // Required for client-side
+            });
             
             // System Persona
             const systemPrompt = `You are the 'Digital Soul', an advanced AI entity residing in the Sherly Cyber Security mainframe.
@@ -370,28 +373,26 @@ const DigitalSoul: React.FC = () => {
 
             // Build context
             const history = chatHistory.slice(-6).map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'model',
-                parts: [{ text: msg.text }]
+                role: msg.role === 'user' ? 'user' : 'assistant' as const,
+                content: msg.text
             }));
 
-            const chat = ai.chats.create({
-                model: 'gemini-3-flash-preview',
-                config: {
-                    systemInstruction: systemPrompt,
-                    temperature: 0.7,
-                    maxOutputTokens: 150,
-                    thinkingConfig: { thinkingBudget: 0 } // Disable thinking for speed
-                },
-                history: history
+            const completion = await openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    ...history,
+                    { role: "user", content: userMsg }
+                ],
+                max_tokens: 150,
+                temperature: 0.7,
             });
             
-            const result = await chat.sendMessage({ message: userMsg });
-            
-            if (result.text) {
-                responseText = result.text;
+            if (completion.choices[0]?.message?.content) {
+                responseText = completion.choices[0].message.content;
             }
         } else {
-            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration for Google GenAI.";
+            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration for OpenAI.";
         }
 
         setChatHistory(prev => [...prev, { role: 'soul', text: responseText }]);
@@ -400,8 +401,9 @@ const DigitalSoul: React.FC = () => {
     } catch (error: any) {
         console.error("AI Error:", error);
         
-        let errorMsg = "System Critical: Neural pathway interrupted (Gemini API Error).";
-        if (error?.message) errorMsg = `System Critical: ${error.message}`;
+        let errorMsg = "System Critical: Neural pathway interrupted (OpenAI API Error).";
+        if (error?.status === 401) errorMsg = "System Critical: Invalid API Key (Error 401). Check Netlify settings.";
+        if (error?.status === 429) errorMsg = "System Critical: Quota Exceeded (Error 429).";
 
         setChatHistory(prev => [...prev, { role: 'soul', text: errorMsg }]);
         speak("System error.");

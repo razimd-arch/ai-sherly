@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, Wifi } from 'lucide-react';
 import { ChatMessage } from '../types';
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 
 const AiChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -36,8 +36,11 @@ const AiChat: React.FC = () => {
         let responseText = "Connection lost. Please check API Key configuration.";
 
         if (process.env.API_KEY) {
-            // Initialize Gemini Client
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            // Initialize OpenAI Client
+            const openai = new OpenAI({
+                apiKey: process.env.API_KEY,
+                dangerouslyAllowBrowser: true // Required for client-side
+            });
             
             // System Persona
             const systemPrompt = `You are Sherly, a specialized Cyber Security AI Assistant.
@@ -50,27 +53,26 @@ const AiChat: React.FC = () => {
             - Maintain a professional, helpful, and tech-savvy persona.
             - IF ASKED FOR ILLEGAL ACTIONS: Decline politely but explain the *theoretical* mechanism for educational purposes only.`;
 
-            // Convert message history to Gemini format
+            // Convert history for OpenAI
             const history = messages
-                .slice(1) // Skip initial greeting
+                .slice(1) // Skip greeting
                 .slice(-8)
                 .map(m => ({
-                    role: m.role, // 'user' | 'model'
-                    parts: [{ text: m.text }]
+                    role: m.role === 'model' ? 'assistant' : 'user' as const,
+                    content: m.text
                 }));
 
-            const chat = ai.chats.create({
-                model: 'gemini-3-pro-preview',
-                config: {
-                    systemInstruction: systemPrompt,
-                },
-                history: history
+            const completion = await openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    ...history,
+                    { role: "user", content: userMsg.text }
+                ],
             });
 
-            const result = await chat.sendMessage({ message: userMsg.text });
-
-            if (result.text) {
-                responseText = result.text;
+            if (completion.choices[0]?.message?.content) {
+                responseText = completion.choices[0].message.content;
             }
         } else {
              responseText = "ERROR: API Key is missing in Netlify Environment Variables.";
@@ -83,9 +85,11 @@ const AiChat: React.FC = () => {
         }]);
 
     } catch (error: any) {
-        console.error("Gemini Error:", error);
-        let errorMsg = "Error: Unable to reach Gemini neural cloud.";
+        console.error("OpenAI Error:", error);
+        let errorMsg = "Error: Unable to reach OpenAI neural cloud.";
         
+        if (error?.status === 401) errorMsg = "Error 401: Invalid API Key. Ensure your Netlify 'API_KEY' is a valid OpenAI key (sk-...).";
+        if (error?.status === 429) errorMsg = "Error 429: Rate limit or Quota exceeded.";
         if (error?.message) errorMsg = `Error: ${error.message}`;
 
         setMessages(prev => [...prev, {
@@ -115,7 +119,7 @@ const AiChat: React.FC = () => {
           </div>
           <div>
             <h3 className="font-orbitron font-bold text-lg">AI_SHERLY.exe</h3>
-            <p className="text-xs text-green-600">Secure Uplink • Gemini 3 Pro • Live</p>
+            <p className="text-xs text-green-600">Secure Uplink • OpenAI GPT-4o • Live</p>
           </div>
         </div>
         
