@@ -1,12 +1,14 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, Wifi, ShieldAlert, Terminal } from 'lucide-react';
 import { ChatMessage } from '../types';
+import { GoogleGenAI } from "@google/genai";
 
 const AiChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { 
       role: 'model', 
-      text: "System initialized. I am Sherly (Model v2.5 - SIMULATION MODE). Ready to assist with penetration testing, code analysis, and security protocols. How can I help you operator?", 
+      text: "System initialized. I am Sherly (Model v2.5 - LIVE MODE). Ready to assist with penetration testing, code analysis, and security protocols. How can I help you operator?", 
       timestamp: new Date().toLocaleTimeString() 
     }
   ]);
@@ -17,49 +19,6 @@ const AiChat: React.FC = () => {
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Simulated AI Logic
-  const generateSimulatedResponse = (query: string): string => {
-    const q = query.toLowerCase();
-    
-    // Knowledge Base
-    if (q.includes('help') || q.includes('menu')) {
-      return "Available Modules:\n1. Network Scanning (Nmap)\n2. Vulnerability Assessment\n3. Wireless Security\n4. Encryption Analysis\n\nTry asking about 'nmap commands', 'how to crack wifi', or 'explain ddos'.";
-    }
-    if (q.includes('nmap') || q.includes('scan')) {
-      return "Nmap (Network Mapper) is essential. \n\nCommon commands:\n- `nmap -sS [target]` (SYN Stealth Scan)\n- `nmap -A [target]` (OS Detection & Version Scanning)\n- `nmap -p- [target]` (Scan all 65535 ports)\n\nDo you need to simulate a scan on a specific IP?";
-    }
-    if (q.includes('wifi') || q.includes('aircrack') || q.includes('wpa')) {
-      return "Wireless auditing requires monitoring mode.\n\nProtocol:\n1. `airmon-ng start wlan0`\n2. `airodump-ng wlan0mon` (Capture handshake)\n3. `aircrack-ng -w wordlist.txt capture.cap`\n\nWarning: Only audit networks you own or have permission to test.";
-    }
-    if (q.includes('password') || q.includes('hash') || q.includes('crack')) {
-      return "Password security depends on entropy. \n\nTools like John the Ripper or Hashcat use dictionary and brute-force attacks. \n\nRecommendation: Use bcrypt or Argon2 for hashing. Avoid MD5 or SHA-1 as they are collision-prone.";
-    }
-    if (q.includes('ddos') || q.includes('attack') || q.includes('flood')) {
-      return "DDoS (Distributed Denial of Service) aims to overwhelm resources. \n\nTypes:\n- Volumetric (UDP Flood)\n- Protocol (SYN Flood)\n- Application Layer (HTTP Flood)\n\nMitigation: Rate limiting, WAF (Web Application Firewall), and Anycast networks.";
-    }
-    if (q.includes('sql') || q.includes('injection') || q.includes('database')) {
-      return "SQL Injection (SQLi) occurs when untrusted data is sent to an interpreter. \n\nPayload Example: `' OR 1=1 --`\n\nPrevention: Always use prepared statements (Parameterized Queries).";
-    }
-    if (q.includes('phishing') || q.includes('email')) {
-      return "Phishing remains the #1 initial access vector. \n\nIndicators:\n- Urgency cues\n- Mismatched domains (typosquatting)\n- Generic greetings\n\nAlways verify headers (SPF, DKIM, DMARC) before trusting an email.";
-    }
-    if (q.includes('who are you') || q.includes('identity')) {
-      return "I am Sherly, a specialized Cyber Security AI construct designed to assist ethical hackers and SecOps teams. I run on a secure, isolated kernel.";
-    }
-
-    // Random Fallback Responses
-    const fallbacks = [
-      "Acknowledged. Analyzing parameters... No immediate threats detected in that context.",
-      "Could you elaborate? I need more specific data to run a vulnerability assessment on that topic.",
-      "Accessing secure archives... Data restricted. Please refine your query.",
-      "That falls under advanced penetration testing protocols. Proceed with caution.",
-      "Scanning knowledge base... Topic indexed. What specific aspect do you want to explore?",
-      "System operating at optimal efficiency. Ready for next command.",
-      "Encryption key verification required for deep analysis. Giving general overview instead."
-    ];
-    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -74,17 +33,55 @@ const AiChat: React.FC = () => {
     setInput('');
     setIsLoading(true);
 
-    // Simulate network delay
-    setTimeout(() => {
-      const responseText = generateSimulatedResponse(userMsg.text);
+    try {
+        let responseText = "Connection lost. Please check API Key configuration.";
 
-      setMessages(prev => [...prev, {
-        role: 'model',
-        text: responseText,
-        timestamp: new Date().toLocaleTimeString()
-      }]);
-      setIsLoading(false);
-    }, 1000 + Math.random() * 1000); // 1-2 second delay
+        if (process.env.API_KEY) {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            
+            // Context Management
+            const history = messages.slice(-8).map(m => 
+                `${m.role === 'user' ? 'OPERATOR' : 'AI'}: ${m.text}`
+            ).join('\n');
+            const prompt = `${history}\nOPERATOR: ${userMsg.text}\nAI:`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-preview',
+                contents: prompt,
+                config: {
+                    systemInstruction: `You are Sherly, a specialized Cyber Security AI Assistant.
+                    
+                    Role:
+                    - Assist ethical hackers, security analysts, and developers.
+                    - Provide accurate technical information about tools (Nmap, Metasploit, Wireshark, etc.).
+                    - Explain vulnerabilities (SQLi, XSS, Buffer Overflow) and mitigation strategies.
+                    - Write simple snippets of code/scripts if asked (Python, Bash).
+                    - Maintain a professional, helpful, and tech-savvy persona.
+                    - IF ASKED FOR ILLEGAL ACTIONS: Decline politely but explain the *theoretical* mechanism for educational purposes only.
+                    `,
+                }
+            });
+
+            if (response.text) {
+                responseText = response.text;
+            }
+        }
+
+        setMessages(prev => [...prev, {
+            role: 'model',
+            text: responseText,
+            timestamp: new Date().toLocaleTimeString()
+        }]);
+
+    } catch (error) {
+        setMessages(prev => [...prev, {
+            role: 'model',
+            text: "Error: Unable to reach neural cloud. Please verify internet connection and API Key.",
+            timestamp: new Date().toLocaleTimeString()
+        }]);
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -104,7 +101,7 @@ const AiChat: React.FC = () => {
           </div>
           <div>
             <h3 className="font-orbitron font-bold text-lg">AI_SHERLY.exe</h3>
-            <p className="text-xs text-green-600">Secure Uplink • Local Simulation Mode</p>
+            <p className="text-xs text-green-600">Secure Uplink • Gemini 2.5 Flash • Live</p>
           </div>
         </div>
         
@@ -171,7 +168,7 @@ const AiChat: React.FC = () => {
            </button>
         </div>
         <div className="text-[10px] text-gray-600 mt-2 text-center font-mono">
-            AI Sherly (Simulation Mode). Verify critical security intel.
+            AI Sherly (Live Mode). Verify critical security intel.
         </div>
       </div>
     </div>

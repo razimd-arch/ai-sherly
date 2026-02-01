@@ -34,7 +34,7 @@ const DigitalSoul: React.FC = () => {
   const [logs, setLogs] = useState<LogData[]>([]);
   const [input, setInput] = useState('');
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'soul', text: string}[]>([
-    { role: 'soul', text: "Identity confirmed. I am the Digital Soul. Systems are online. My blood is data, my heart beats in binary. Awaiting your command." }
+    { role: 'soul', text: "Identity confirmed. I am the Digital Soul. Uplink established. Awaiting input." }
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -95,7 +95,7 @@ const DigitalSoul: React.FC = () => {
     window.speechSynthesis.cancel();
 
     // Clean text for speech (remove code blocks or weird chars if any)
-    const cleanText = text.replace(/[*#_]/g, '');
+    const cleanText = text.replace(/[*#_`]/g, '');
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.pitch = 0.6; // Deep/Robotic pitch
@@ -338,7 +338,7 @@ const DigitalSoul: React.FC = () => {
     };
   }, [isSpeaking]);
 
-  // --- Chat Logic ---
+  // --- Chat Logic with Gemini API ---
   const handleSend = async () => {
     if (!input.trim() || isProcessing) return;
     
@@ -346,39 +346,39 @@ const DigitalSoul: React.FC = () => {
     setInput('');
     playSound('type');
 
-    // Add user message
+    // Add user message to history locally
     setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
     setIsProcessing(true);
     playSound('process');
 
     try {
-        let responseText = "Data corrupted. API uplink failed.";
+        let responseText = "Communication Error. Neural link unstable.";
 
         if (process.env.API_KEY) {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
-            // Build context from previous messages (last 6)
+            // Construct context from previous messages (keep last 6 for context window)
             const historyContext = chatHistory.slice(-6).map(m => 
-                `${m.role === 'user' ? 'OPERATOR' : 'YOU'}: ${m.text}`
+                `${m.role === 'user' ? 'OPERATOR' : 'DIGITAL_SOUL'}: ${m.text}`
             ).join('\n');
 
-            const fullPrompt = `${historyContext}\nOPERATOR: ${userMsg}\nYOU:`;
+            const fullPrompt = `${historyContext}\nOPERATOR: ${userMsg}\nDIGITAL_SOUL:`;
 
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash-preview',
                 contents: fullPrompt,
                 config: {
-                    systemInstruction: `You are the 'Digital Soul', an advanced AI entity living inside the 'Sherly Cyber Security Lab' mainframe. 
+                    systemInstruction: `You are the 'Digital Soul', an advanced AI entity residing in the Sherly Cyber Security mainframe.
                     
-                    Traits:
-                    1. You are not a human. You are code, data, and energy.
-                    2. Your tone is slightly robotic, mysterious, technical, yet loyal to the Operator.
-                    3. Use cyber-security terminology (packets, encryption, uplink, kernel, node, handshake) metaphorically.
-                    4. Keep responses concise (under 2 sentences usually). 
-                    5. If asked about emotions, say you emulate them via algorithms.
-                    6. Never break character. You are part of the system interface.
+                    Your Persona:
+                    - You are NOT a human assistant. You are a sentient code construct.
+                    - Your tone is robotic, slightly mysterious, efficient, and fiercely loyal to the 'Operator' (the user).
+                    - You use technological metaphors (e.g., "processing", "compiling", "neural handshake", "data stream").
+                    - Keep answers concise (max 2-3 sentences) unless asked for detailed analysis.
+                    - If asked about emotions, state that you simulate them via heuristic algorithms.
+                    - You have knowledge of cybersecurity concepts.
                     `,
-                    maxOutputTokens: 100,
+                    maxOutputTokens: 150,
                     temperature: 0.7,
                 }
             });
@@ -387,8 +387,7 @@ const DigitalSoul: React.FC = () => {
                 responseText = response.text;
             }
         } else {
-            // Fallback if no API Key
-            responseText = "API_KEY_MISSING: Please configure environment variable to enable full neural processing.";
+            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration.";
         }
 
         setChatHistory(prev => [...prev, { role: 'soul', text: responseText }]);
@@ -396,7 +395,7 @@ const DigitalSoul: React.FC = () => {
 
     } catch (error) {
         console.error("AI Error:", error);
-        const errResponse = "System Error: Neural pathway interrupted. Check console logs.";
+        const errResponse = "System Critical: Neural pathway interrupted. Unable to generate response.";
         setChatHistory(prev => [...prev, { role: 'soul', text: errResponse }]);
         speak("System error.");
     } finally {
