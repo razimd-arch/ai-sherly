@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, Wifi } from 'lucide-react';
 import { ChatMessage } from '../types';
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 const AiChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { 
       role: 'model', 
-      text: "System initialized. I am Sherly (Model v2.5 - LIVE MODE). Ready to assist with penetration testing, code analysis, and security protocols. How can I help you operator?", 
+      text: "System initialized. I am Sherly (Model v3.0 - FLASH). Running on Google Gemini infrastructure. Ready for security operations.", 
       timestamp: new Date().toLocaleTimeString() 
     }
   ]);
@@ -36,14 +36,11 @@ const AiChat: React.FC = () => {
         let responseText = "Connection lost. Please check API Key configuration.";
 
         if (process.env.API_KEY) {
-            // Initialize OpenAI Client
-            const openai = new OpenAI({
-                apiKey: process.env.API_KEY,
-                dangerouslyAllowBrowser: true // Required for client-side
-            });
+            // Initialize Gemini Client
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             // System Persona
-            const systemPrompt = `You are Sherly, a specialized Cyber Security AI Assistant.
+            const systemInstruction = `You are Sherly, a specialized Cyber Security AI Assistant.
                     
             Role:
             - Assist ethical hackers, security analysts, and developers.
@@ -53,29 +50,31 @@ const AiChat: React.FC = () => {
             - Maintain a professional, helpful, and tech-savvy persona.
             - IF ASKED FOR ILLEGAL ACTIONS: Decline politely but explain the *theoretical* mechanism for educational purposes only.`;
 
-            // Convert history for OpenAI
+            // Convert history for Gemini
+            // Skip greeting (index 0) and take last 10 messages for context
             const history = messages
-                .slice(1) // Skip greeting
-                .slice(-8)
+                .slice(1) 
+                .slice(-10)
                 .map(m => ({
-                    role: m.role === 'model' ? 'assistant' : 'user' as const,
-                    content: m.text
+                    role: m.role, // 'user' or 'model'
+                    parts: [{ text: m.text }]
                 }));
 
-            const completion = await openai.chat.completions.create({
-                model: "gpt-4o",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    ...history,
-                    { role: "user", content: userMsg.text }
-                ],
+            // Using 'gemini-3-flash-preview' as it is fast and free-tier friendly
+            const chat = ai.chats.create({
+                model: 'gemini-3-flash-preview',
+                config: {
+                    systemInstruction: systemInstruction,
+                },
+                history: history,
             });
 
-            if (completion.choices[0]?.message?.content) {
-                responseText = completion.choices[0].message.content;
+            const result = await chat.sendMessage({ message: userMsg.text });
+            if (result.text) {
+                responseText = result.text;
             }
         } else {
-             responseText = "ERROR: API Key is missing in Netlify Environment Variables.";
+             responseText = "ERROR: API Key is missing. Please set 'API_KEY' in Netlify Environment Variables with your Google AI Studio key.";
         }
 
         setMessages(prev => [...prev, {
@@ -85,12 +84,12 @@ const AiChat: React.FC = () => {
         }]);
 
     } catch (error: any) {
-        console.error("OpenAI Error:", error);
-        let errorMsg = "Error: Unable to reach OpenAI neural cloud.";
+        console.error("Gemini Error:", error);
+        let errorMsg = "Error: Unable to reach Gemini neural cloud.";
         
-        if (error?.status === 401) errorMsg = "Error 401: Invalid API Key. Ensure your Netlify 'API_KEY' is a valid OpenAI key (sk-...).";
-        if (error?.status === 429) errorMsg = "Error 429: Rate limit or Quota exceeded.";
         if (error?.message) errorMsg = `Error: ${error.message}`;
+        // Specific help for common errors
+        if (error?.message?.includes('API key')) errorMsg = "Auth Error: Invalid API Key. Please get a valid key from aistudio.google.com";
 
         setMessages(prev => [...prev, {
             role: 'model',
@@ -119,7 +118,7 @@ const AiChat: React.FC = () => {
           </div>
           <div>
             <h3 className="font-orbitron font-bold text-lg">AI_SHERLY.exe</h3>
-            <p className="text-xs text-green-600">Secure Uplink • OpenAI GPT-4o • Live</p>
+            <p className="text-xs text-green-600">Secure Uplink • Gemini 3 Flash • Live</p>
           </div>
         </div>
         
@@ -186,7 +185,7 @@ const AiChat: React.FC = () => {
            </button>
         </div>
         <div className="text-[10px] text-gray-600 mt-2 text-center font-mono">
-            AI Sherly (Live Mode). Verify critical security intel.
+            AI Sherly (Live Mode). Powered by Google Gemini.
         </div>
       </div>
     </div>

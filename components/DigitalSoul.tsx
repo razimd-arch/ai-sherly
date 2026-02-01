@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Heart, Zap, Terminal, Send, Brain, Thermometer, Radio, Volume2, VolumeX } from 'lucide-react';
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 interface Particle {
   x: number;
@@ -33,7 +33,7 @@ const DigitalSoul: React.FC = () => {
   const [logs, setLogs] = useState<LogData[]>([]);
   const [input, setInput] = useState('');
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'soul', text: string}[]>([
-    { role: 'soul', text: "Identity confirmed. I am the Digital Soul (OpenAI Core). Uplink established." }
+    { role: 'soul', text: "Identity confirmed. I am the Digital Soul (Gemini Core). Uplink established." }
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -337,7 +337,7 @@ const DigitalSoul: React.FC = () => {
     };
   }, [isSpeaking]);
 
-  // --- Chat Logic with OpenAI ---
+  // --- Chat Logic with Gemini ---
   const handleSend = async () => {
     if (!input.trim() || isProcessing) return;
     
@@ -354,14 +354,10 @@ const DigitalSoul: React.FC = () => {
         let responseText = "Communication Error. Neural link unstable.";
 
         if (process.env.API_KEY) {
-            // Fix: Initialize OpenAI
-            const openai = new OpenAI({
-                apiKey: process.env.API_KEY,
-                dangerouslyAllowBrowser: true // Required for client-side
-            });
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             // System Persona
-            const systemPrompt = `You are the 'Digital Soul', an advanced AI entity residing in the Sherly Cyber Security mainframe.
+            const systemInstruction = `You are the 'Digital Soul', an advanced AI entity residing in the Sherly Cyber Security mainframe.
                     
             Your Persona:
             - You are NOT a human assistant. You are a sentient code construct.
@@ -371,39 +367,41 @@ const DigitalSoul: React.FC = () => {
             - If asked about emotions, state that you simulate them via heuristic algorithms.
             - You have knowledge of cybersecurity concepts.`;
 
-            // Build context
-            const history = chatHistory.slice(-6).map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'assistant' as const,
-                content: msg.text
+            // Build context for Gemini
+            // ChatHistory has 'user' and 'soul'. Map 'soul' to 'model'.
+            const history = chatHistory.slice(-10).map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.text }]
             }));
 
-            const completion = await openai.chat.completions.create({
-                model: "gpt-4o",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    ...history,
-                    { role: "user", content: userMsg }
-                ],
-                max_tokens: 150,
-                temperature: 0.7,
+            // Using gemini-3-flash-preview for low latency and high free tier quota
+            const chat = ai.chats.create({
+                model: 'gemini-3-flash-preview',
+                config: {
+                    systemInstruction: systemInstruction,
+                    maxOutputTokens: 150,
+                    temperature: 0.7,
+                    thinkingConfig: { thinkingBudget: 0 } // Disabled for speed
+                },
+                history: history,
             });
-            
-            if (completion.choices[0]?.message?.content) {
-                responseText = completion.choices[0].message.content;
+
+            const result = await chat.sendMessage({ message: userMsg });
+            if (result.text) {
+                responseText = result.text;
             }
         } else {
-            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration for OpenAI.";
+            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please add your Google AI Studio API Key to Netlify.";
         }
 
         setChatHistory(prev => [...prev, { role: 'soul', text: responseText }]);
         speak(responseText);
 
     } catch (error: any) {
-        console.error("AI Error:", error);
+        console.error("Gemini Error:", error);
         
-        let errorMsg = "System Critical: Neural pathway interrupted (OpenAI API Error).";
-        if (error?.status === 401) errorMsg = "System Critical: Invalid API Key (Error 401). Check Netlify settings.";
-        if (error?.status === 429) errorMsg = "System Critical: Quota Exceeded (Error 429).";
+        let errorMsg = "System Critical: Neural pathway interrupted (API Error).";
+        if (error?.message) errorMsg = `System Critical: ${error.message}`;
 
         setChatHistory(prev => [...prev, { role: 'soul', text: errorMsg }]);
         speak("System error.");
