@@ -354,7 +354,7 @@ const DigitalSoul: React.FC = () => {
         let responseText = "Communication Error. Neural link unstable.";
 
         if (process.env.API_KEY) {
-            // Fix: Switch to GoogleGenAI Client
+            // Fix: Switch to Google GenAI Client
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             // System Persona
@@ -378,8 +378,9 @@ const DigitalSoul: React.FC = () => {
                 model: 'gemini-3-flash-preview',
                 config: {
                     systemInstruction: systemPrompt,
-                    maxOutputTokens: 150,
                     temperature: 0.7,
+                    maxOutputTokens: 150,
+                    thinkingConfig: { thinkingBudget: 0 } // Disable thinking for speed
                 },
                 history: history
             });
@@ -390,7 +391,7 @@ const DigitalSoul: React.FC = () => {
                 responseText = result.text;
             }
         } else {
-            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration for API Key.";
+            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration for Google GenAI.";
         }
 
         setChatHistory(prev => [...prev, { role: 'soul', text: responseText }]);
@@ -400,8 +401,7 @@ const DigitalSoul: React.FC = () => {
         console.error("AI Error:", error);
         
         let errorMsg = "System Critical: Neural pathway interrupted (Gemini API Error).";
-        if (error?.status === 401) errorMsg = "System Critical: Invalid API Key (Error 401). Check Netlify settings.";
-        if (error?.status === 429) errorMsg = "System Critical: Quota Exceeded (Error 429).";
+        if (error?.message) errorMsg = `System Critical: ${error.message}`;
 
         setChatHistory(prev => [...prev, { role: 'soul', text: errorMsg }]);
         speak("System error.");

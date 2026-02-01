@@ -36,7 +36,7 @@ const AiChat: React.FC = () => {
         let responseText = "Connection lost. Please check API Key configuration.";
 
         if (process.env.API_KEY) {
-            // Initialize GoogleGenAI Client
+            // Initialize Gemini Client
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             // System Persona
@@ -55,12 +55,12 @@ const AiChat: React.FC = () => {
                 .slice(1) // Skip initial greeting
                 .slice(-8)
                 .map(m => ({
-                    role: m.role,
+                    role: m.role, // 'user' | 'model'
                     parts: [{ text: m.text }]
                 }));
 
             const chat = ai.chats.create({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3-pro-preview',
                 config: {
                     systemInstruction: systemPrompt,
                 },
@@ -84,11 +84,9 @@ const AiChat: React.FC = () => {
 
     } catch (error: any) {
         console.error("Gemini Error:", error);
-        let errorMsg = "Error: Unable to reach Neural Cloud.";
+        let errorMsg = "Error: Unable to reach Gemini neural cloud.";
         
-        // Basic error handling
-        if (error?.status === 401) errorMsg = "Error 401: Invalid API Key. Please check your Netlify configuration.";
-        if (error?.status === 429) errorMsg = "Error 429: Rate limit exceeded or Quota exceeded.";
+        if (error?.message) errorMsg = `Error: ${error.message}`;
 
         setMessages(prev => [...prev, {
             role: 'model',
@@ -117,7 +115,7 @@ const AiChat: React.FC = () => {
           </div>
           <div>
             <h3 className="font-orbitron font-bold text-lg">AI_SHERLY.exe</h3>
-            <p className="text-xs text-green-600">Secure Uplink • Gemini 3 Flash • Live</p>
+            <p className="text-xs text-green-600">Secure Uplink • Gemini 3 Pro • Live</p>
           </div>
         </div>
         
