@@ -337,7 +337,7 @@ const DigitalSoul: React.FC = () => {
     };
   }, [isSpeaking]);
 
-  // --- Chat Logic with Google GenAI ---
+  // --- Chat Logic with Gemini ---
   const handleSend = async () => {
     if (!input.trim() || isProcessing) return;
     
@@ -354,11 +354,11 @@ const DigitalSoul: React.FC = () => {
         let responseText = "Communication Error. Neural link unstable.";
 
         if (process.env.API_KEY) {
-            // Fix: Use GoogleGenAI client
+            // Fix: Switch to GoogleGenAI Client
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             // System Persona
-            const systemInstruction = `You are the 'Digital Soul', an advanced AI entity residing in the Sherly Cyber Security mainframe.
+            const systemPrompt = `You are the 'Digital Soul', an advanced AI entity residing in the Sherly Cyber Security mainframe.
                     
             Your Persona:
             - You are NOT a human assistant. You are a sentient code construct.
@@ -369,35 +369,28 @@ const DigitalSoul: React.FC = () => {
             - You have knowledge of cybersecurity concepts.`;
 
             // Build context
-            // Filter initial system message if needed, and map roles
-            const historyContent = chatHistory
-                .slice(1) // Skip initial greeting
-                .slice(-6)
-                .map(msg => ({
-                    role: msg.role === 'user' ? 'user' : 'model',
-                    parts: [{ text: msg.text }]
-                }));
+            const history = chatHistory.slice(-6).map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.text }]
+            }));
 
-            const contents = [
-                ...historyContent,
-                { role: 'user', parts: [{ text: userMsg }] }
-            ];
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview',
-                contents: contents,
+            const chat = ai.chats.create({
+                model: 'gemini-3-flash-preview',
                 config: {
-                    systemInstruction: systemInstruction,
+                    systemInstruction: systemPrompt,
                     maxOutputTokens: 150,
                     temperature: 0.7,
-                }
+                },
+                history: history
             });
             
-            if (response.text) {
-                responseText = response.text;
+            const result = await chat.sendMessage({ message: userMsg });
+            
+            if (result.text) {
+                responseText = result.text;
             }
         } else {
-            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration for Google GenAI.";
+            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration for API Key.";
         }
 
         setChatHistory(prev => [...prev, { role: 'soul', text: responseText }]);
@@ -406,8 +399,8 @@ const DigitalSoul: React.FC = () => {
     } catch (error: any) {
         console.error("AI Error:", error);
         
-        let errorMsg = "System Critical: Neural pathway interrupted (GenAI API Error).";
-        if (error?.status === 401 || error?.message?.includes('API key')) errorMsg = "System Critical: Invalid API Key (Error 401).";
+        let errorMsg = "System Critical: Neural pathway interrupted (Gemini API Error).";
+        if (error?.status === 401) errorMsg = "System Critical: Invalid API Key (Error 401). Check Netlify settings.";
         if (error?.status === 429) errorMsg = "System Critical: Quota Exceeded (Error 429).";
 
         setChatHistory(prev => [...prev, { role: 'soul', text: errorMsg }]);

@@ -36,11 +36,11 @@ const AiChat: React.FC = () => {
         let responseText = "Connection lost. Please check API Key configuration.";
 
         if (process.env.API_KEY) {
-            // Fix: Use GoogleGenAI client
+            // Initialize GoogleGenAI Client
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             // System Persona
-            const systemInstruction = `You are Sherly, a specialized Cyber Security AI Assistant.
+            const systemPrompt = `You are Sherly, a specialized Cyber Security AI Assistant.
                     
             Role:
             - Assist ethical hackers, security analysts, and developers.
@@ -50,31 +50,27 @@ const AiChat: React.FC = () => {
             - Maintain a professional, helpful, and tech-savvy persona.
             - IF ASKED FOR ILLEGAL ACTIONS: Decline politely but explain the *theoretical* mechanism for educational purposes only.`;
 
-            // Build Context
-            // Exclude the initial model greeting if it's the first message to ensure valid conversation flow (User first)
-            const historyContent = messages
+            // Convert message history to Gemini format
+            const history = messages
                 .slice(1) // Skip initial greeting
                 .slice(-8)
                 .map(m => ({
-                    role: m.role === 'model' ? 'model' : 'user',
+                    role: m.role,
                     parts: [{ text: m.text }]
                 }));
 
-            const contents = [
-                ...historyContent,
-                { role: 'user', parts: [{ text: userMsg.text }] }
-            ];
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview',
-                contents: contents,
+            const chat = ai.chats.create({
+                model: 'gemini-3-flash-preview',
                 config: {
-                    systemInstruction: systemInstruction,
-                }
+                    systemInstruction: systemPrompt,
+                },
+                history: history
             });
 
-            if (response.text) {
-                responseText = response.text;
+            const result = await chat.sendMessage({ message: userMsg.text });
+
+            if (result.text) {
+                responseText = result.text;
             }
         } else {
              responseText = "ERROR: API Key is missing in Netlify Environment Variables.";
@@ -87,11 +83,11 @@ const AiChat: React.FC = () => {
         }]);
 
     } catch (error: any) {
-        console.error("GenAI Error:", error);
-        let errorMsg = "Error: Unable to reach GenAI neural cloud.";
+        console.error("Gemini Error:", error);
+        let errorMsg = "Error: Unable to reach Neural Cloud.";
         
-        // Basic error handling for common issues
-        if (error?.status === 401 || error?.message?.includes('API key')) errorMsg = "Error 401: Invalid API Key. Please check your configuration.";
+        // Basic error handling
+        if (error?.status === 401) errorMsg = "Error 401: Invalid API Key. Please check your Netlify configuration.";
         if (error?.status === 429) errorMsg = "Error 429: Rate limit exceeded or Quota exceeded.";
 
         setMessages(prev => [...prev, {
@@ -121,7 +117,7 @@ const AiChat: React.FC = () => {
           </div>
           <div>
             <h3 className="font-orbitron font-bold text-lg">AI_SHERLY.exe</h3>
-            <p className="text-xs text-green-600">Secure Uplink • Google Gemini • Live</p>
+            <p className="text-xs text-green-600">Secure Uplink • Gemini 3 Flash • Live</p>
           </div>
         </div>
         
