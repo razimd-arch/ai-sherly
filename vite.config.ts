@@ -1,14 +1,23 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  root: '.', // Set root to current directory since files are flat
-  define: {
-    'process.env': {} // Mencegah crash "process is not defined" di browser
-  },
-  build: {
-    outDir: 'dist',
-  }
+export default defineConfig(({ mode }) => {
+  // Load env file based on `mode` in the current working directory.
+  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
+    plugins: [react()],
+    root: '.',
+    define: {
+      // Polyfill process.env for the Google GenAI SDK and inject the API Key
+      'process.env': {
+        API_KEY: env.API_KEY
+      }
+    },
+    build: {
+      outDir: 'dist',
+    }
+  };
 });

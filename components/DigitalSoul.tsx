@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Heart, Zap, Terminal, Send, Brain, Thermometer, Radio, Volume2, VolumeX } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 
 interface Particle {
   x: number;
@@ -93,7 +94,10 @@ const DigitalSoul: React.FC = () => {
     // Cancel previous speech
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    // Clean text for speech (remove code blocks or weird chars if any)
+    const cleanText = text.replace(/[*#_]/g, '');
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.pitch = 0.6; // Deep/Robotic pitch
     utterance.rate = 1.0; 
     utterance.volume = 0.8;
@@ -335,40 +339,73 @@ const DigitalSoul: React.FC = () => {
   }, [isSpeaking]);
 
   // --- Chat Logic ---
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || isProcessing) return;
     
+    const userMsg = input;
+    setInput('');
     playSound('type');
 
     // Add user message
-    const userMsg = input;
     setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
-    setInput('');
     setIsProcessing(true);
     playSound('process');
 
-    // Simulate AI thinking and response
-    setTimeout(() => {
-        let response = "I process data, not emotions. Please restate query.";
-        const lower = userMsg.toLowerCase();
+    try {
+        let responseText = "Data corrupted. API uplink failed.";
 
-        if (lower.includes('hello') || lower.includes('hi')) response = "Greetings, Operator. Neural link established.";
-        else if (lower.includes('status') || lower.includes('health')) response = `System nominal. Heart Rate: ${heartRate} BPM. Brain freq: ${brainFreq} Hz. Core Temp: ${sysTemp}°C.`;
-        else if (lower.includes('who are you')) response = "I am the visual manifestation of the system's kernel. The Digital Soul.";
-        else if (lower.includes('error')) response = "Scanning for errors... None found in core logic. Checking peripheral subroutines.";
-        else if (lower.includes('scan')) response = "Initiating scan protocol... Target sector clear.";
-        
-        setChatHistory(prev => [...prev, { role: 'soul', text: response }]);
+        if (process.env.API_KEY) {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            
+            // Build context from previous messages (last 6)
+            const historyContext = chatHistory.slice(-6).map(m => 
+                `${m.role === 'user' ? 'OPERATOR' : 'YOU'}: ${m.text}`
+            ).join('\n');
+
+            const fullPrompt = `${historyContext}\nOPERATOR: ${userMsg}\nYOU:`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-preview',
+                contents: fullPrompt,
+                config: {
+                    systemInstruction: `You are the 'Digital Soul', an advanced AI entity living inside the 'Sherly Cyber Security Lab' mainframe. 
+                    
+                    Traits:
+                    1. You are not a human. You are code, data, and energy.
+                    2. Your tone is slightly robotic, mysterious, technical, yet loyal to the Operator.
+                    3. Use cyber-security terminology (packets, encryption, uplink, kernel, node, handshake) metaphorically.
+                    4. Keep responses concise (under 2 sentences usually). 
+                    5. If asked about emotions, say you emulate them via algorithms.
+                    6. Never break character. You are part of the system interface.
+                    `,
+                    maxOutputTokens: 100,
+                    temperature: 0.7,
+                }
+            });
+            
+            if (response.text) {
+                responseText = response.text;
+            }
+        } else {
+            // Fallback if no API Key
+            responseText = "API_KEY_MISSING: Please configure environment variable to enable full neural processing.";
+        }
+
+        setChatHistory(prev => [...prev, { role: 'soul', text: responseText }]);
+        speak(responseText);
+
+    } catch (error) {
+        console.error("AI Error:", error);
+        const errResponse = "System Error: Neural pathway interrupted. Check console logs.";
+        setChatHistory(prev => [...prev, { role: 'soul', text: errResponse }]);
+        speak("System error.");
+    } finally {
         setIsProcessing(false);
-        
-        // Trigger speaking audio and animation
-        speak(response);
-
         // Scroll to bottom
         setTimeout(() => {
             if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }, 100);
-    }, 1500);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -381,7 +418,6 @@ const DigitalSoul: React.FC = () => {
         {/* Left: The Digital Avatar (Clean View) */}
         <div className="flex-1 lg:w-1/2 glass-panel rounded-lg border border-green-900 bg-black relative flex flex-col overflow-hidden justify-center items-center">
              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
-             {/* Text overlays removed */}
         </div>
 
         {/* Right: Dashboard & Chat */}
@@ -490,7 +526,7 @@ const DigitalSoul: React.FC = () => {
                     {isProcessing && (
                          <div className="flex justify-start">
                              <div className="text-green-500 text-[10px] font-mono animate-pulse flex items-center gap-1">
-                                 <Zap size={10} /> processing_query...
+                                 <Zap size={10} /> processing_neural_query...
                              </div>
                          </div>
                     )}
@@ -504,7 +540,7 @@ const DigitalSoul: React.FC = () => {
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
                         onFocus={() => initAudio()}
-                        placeholder="Initialize data transfer..."
+                        placeholder="Interact with the entity..."
                         className="flex-1 bg-gray-900/30 border border-green-900/50 rounded px-3 py-2 text-xs text-green-300 focus:outline-none focus:border-green-500/70 font-mono placeholder-green-900"
                     />
                     <button onClick={handleSend} className="px-3 bg-green-900/20 border border-green-500/30 text-green-400 rounded hover:bg-green-500/20 transition-colors">
