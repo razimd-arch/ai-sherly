@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Sparkles, Wifi, ShieldAlert, Terminal } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, Wifi } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { GoogleGenAI } from "@google/genai";
 
@@ -37,10 +36,11 @@ const AiChat: React.FC = () => {
         let responseText = "Connection lost. Please check API Key configuration.";
 
         if (process.env.API_KEY) {
+            // Fix: Use GoogleGenAI client
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             // System Persona
-            const systemPrompt = `You are Sherly, a specialized Cyber Security AI Assistant.
+            const systemInstruction = `You are Sherly, a specialized Cyber Security AI Assistant.
                     
             Role:
             - Assist ethical hackers, security analysts, and developers.
@@ -51,25 +51,33 @@ const AiChat: React.FC = () => {
             - IF ASKED FOR ILLEGAL ACTIONS: Decline politely but explain the *theoretical* mechanism for educational purposes only.`;
 
             // Build Context
-            const conversation = messages.slice(-8).map(m => ({
-                role: m.role === 'model' ? 'model' : 'user',
-                parts: [{ text: m.text }]
-            }));
+            // Exclude the initial model greeting if it's the first message to ensure valid conversation flow (User first)
+            const historyContent = messages
+                .slice(1) // Skip initial greeting
+                .slice(-8)
+                .map(m => ({
+                    role: m.role === 'model' ? 'model' : 'user',
+                    parts: [{ text: m.text }]
+                }));
+
+            const contents = [
+                ...historyContent,
+                { role: 'user', parts: [{ text: userMsg.text }] }
+            ];
 
             const response = await ai.models.generateContent({
                 model: 'gemini-3-pro-preview',
-                contents: [
-                    ...conversation,
-                    { role: 'user', parts: [{ text: userMsg.text }] }
-                ],
+                contents: contents,
                 config: {
-                    systemInstruction: systemPrompt,
+                    systemInstruction: systemInstruction,
                 }
             });
 
             if (response.text) {
                 responseText = response.text;
             }
+        } else {
+             responseText = "ERROR: API Key is missing in Netlify Environment Variables.";
         }
 
         setMessages(prev => [...prev, {
@@ -78,11 +86,17 @@ const AiChat: React.FC = () => {
             timestamp: new Date().toLocaleTimeString()
         }]);
 
-    } catch (error) {
-        console.error(error);
+    } catch (error: any) {
+        console.error("GenAI Error:", error);
+        let errorMsg = "Error: Unable to reach GenAI neural cloud.";
+        
+        // Basic error handling for common issues
+        if (error?.status === 401 || error?.message?.includes('API key')) errorMsg = "Error 401: Invalid API Key. Please check your configuration.";
+        if (error?.status === 429) errorMsg = "Error 429: Rate limit exceeded or Quota exceeded.";
+
         setMessages(prev => [...prev, {
             role: 'model',
-            text: "Error: Unable to reach neural cloud. Please verify internet connection and API Key.",
+            text: errorMsg,
             timestamp: new Date().toLocaleTimeString()
         }]);
     } finally {
