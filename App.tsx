@@ -598,7 +598,7 @@ const DocsView = () => (
       </section>
       <section>
         <h3 className="text-green-400 text-lg font-bold mb-2 flex items-center gap-2"><Lock size={16}/> 2.0 AI Integration</h3>
-        <p className="leading-relaxed">The 'Sherly' AI model (powered by Gemini Flash) serves as an interactive assistant. Operators can query the AI for shell command syntax, vulnerability explanations, and generated reports. Use the <span className="text-white bg-gray-800 px-1 rounded">AI Chat</span> tab to initialize the uplink.</p>
+        <p className="leading-relaxed">The 'Sherly' AI model (powered by OpenAI GPT-4o) serves as an interactive assistant. Operators can query the AI for shell command syntax, vulnerability explanations, and generated reports. Use the <span className="text-white bg-gray-800 px-1 rounded">AI Chat</span> tab to initialize the uplink.</p>
       </section>
       <section>
         <h3 className="text-green-400 text-lg font-bold mb-2 flex items-center gap-2"><Database size={16}/> 3.0 Data Breach Simulator</h3>
@@ -710,7 +710,7 @@ const AboutView = () => (
                  </li>
                  <li className="flex justify-between items-center">
                     <span className="text-gray-500">AI CORE</span>
-                    <span className="text-blue-300">Google Gemini 2.5 Flash</span>
+                    <span className="text-blue-300">OpenAI GPT-4o</span>
                  </li>
               </ul>
            </div>

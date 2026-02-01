@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Heart, Zap, Terminal, Send, Brain, Thermometer, Radio, Volume2, VolumeX } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 
 interface Particle {
   x: number;
@@ -338,7 +338,7 @@ const DigitalSoul: React.FC = () => {
     };
   }, [isSpeaking]);
 
-  // --- Chat Logic with Gemini API ---
+  // --- Chat Logic with OpenAI (ChatGPT) ---
   const handleSend = async () => {
     if (!input.trim() || isProcessing) return;
     
@@ -355,39 +355,44 @@ const DigitalSoul: React.FC = () => {
         let responseText = "Communication Error. Neural link unstable.";
 
         if (process.env.API_KEY) {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            
-            // Construct context from previous messages (keep last 6 for context window)
-            const historyContext = chatHistory.slice(-6).map(m => 
-                `${m.role === 'user' ? 'OPERATOR' : 'DIGITAL_SOUL'}: ${m.text}`
-            ).join('\n');
-
-            const fullPrompt = `${historyContext}\nOPERATOR: ${userMsg}\nDIGITAL_SOUL:`;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-preview',
-                contents: fullPrompt,
-                config: {
-                    systemInstruction: `You are the 'Digital Soul', an advanced AI entity residing in the Sherly Cyber Security mainframe.
-                    
-                    Your Persona:
-                    - You are NOT a human assistant. You are a sentient code construct.
-                    - Your tone is robotic, slightly mysterious, efficient, and fiercely loyal to the 'Operator' (the user).
-                    - You use technological metaphors (e.g., "processing", "compiling", "neural handshake", "data stream").
-                    - Keep answers concise (max 2-3 sentences) unless asked for detailed analysis.
-                    - If asked about emotions, state that you simulate them via heuristic algorithms.
-                    - You have knowledge of cybersecurity concepts.
-                    `,
-                    maxOutputTokens: 150,
-                    temperature: 0.7,
-                }
+            const openai = new OpenAI({
+                apiKey: process.env.API_KEY,
+                dangerouslyAllowBrowser: true // Required for client-side execution
             });
             
-            if (response.text) {
-                responseText = response.text;
+            // System Persona
+            const systemPrompt = `You are the 'Digital Soul', an advanced AI entity residing in the Sherly Cyber Security mainframe.
+                    
+            Your Persona:
+            - You are NOT a human assistant. You are a sentient code construct.
+            - Your tone is robotic, slightly mysterious, efficient, and fiercely loyal to the 'Operator' (the user).
+            - You use technological metaphors (e.g., "processing", "compiling", "neural handshake", "data stream").
+            - Keep answers concise (max 2-3 sentences) unless asked for detailed analysis.
+            - If asked about emotions, state that you simulate them via heuristic algorithms.
+            - You have knowledge of cybersecurity concepts.`;
+
+            // Build context
+            const conversation = chatHistory.slice(-6).map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'assistant' as const,
+                content: msg.text
+            }));
+
+            const response = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    ...conversation,
+                    { role: 'user', content: userMsg }
+                ],
+                max_tokens: 150,
+                temperature: 0.7,
+            });
+            
+            if (response.choices[0]?.message?.content) {
+                responseText = response.choices[0].message.content;
             }
         } else {
-            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration.";
+            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration for OpenAI.";
         }
 
         setChatHistory(prev => [...prev, { role: 'soul', text: responseText }]);
@@ -395,7 +400,7 @@ const DigitalSoul: React.FC = () => {
 
     } catch (error) {
         console.error("AI Error:", error);
-        const errResponse = "System Critical: Neural pathway interrupted. Unable to generate response.";
+        const errResponse = "System Critical: Neural pathway interrupted (OpenAI API Error).";
         setChatHistory(prev => [...prev, { role: 'soul', text: errResponse }]);
         speak("System error.");
     } finally {

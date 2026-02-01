@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, Wifi, ShieldAlert, Terminal } from 'lucide-react';
 import { ChatMessage } from '../types';
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 
 const AiChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -37,33 +37,39 @@ const AiChat: React.FC = () => {
         let responseText = "Connection lost. Please check API Key configuration.";
 
         if (process.env.API_KEY) {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const openai = new OpenAI({
+                apiKey: process.env.API_KEY,
+                dangerouslyAllowBrowser: true // Required for client-side execution
+            });
             
-            // Context Management
-            const history = messages.slice(-8).map(m => 
-                `${m.role === 'user' ? 'OPERATOR' : 'AI'}: ${m.text}`
-            ).join('\n');
-            const prompt = `${history}\nOPERATOR: ${userMsg.text}\nAI:`;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-preview',
-                contents: prompt,
-                config: {
-                    systemInstruction: `You are Sherly, a specialized Cyber Security AI Assistant.
+            // System Persona
+            const systemPrompt = `You are Sherly, a specialized Cyber Security AI Assistant.
                     
-                    Role:
-                    - Assist ethical hackers, security analysts, and developers.
-                    - Provide accurate technical information about tools (Nmap, Metasploit, Wireshark, etc.).
-                    - Explain vulnerabilities (SQLi, XSS, Buffer Overflow) and mitigation strategies.
-                    - Write simple snippets of code/scripts if asked (Python, Bash).
-                    - Maintain a professional, helpful, and tech-savvy persona.
-                    - IF ASKED FOR ILLEGAL ACTIONS: Decline politely but explain the *theoretical* mechanism for educational purposes only.
-                    `,
-                }
+            Role:
+            - Assist ethical hackers, security analysts, and developers.
+            - Provide accurate technical information about tools (Nmap, Metasploit, Wireshark, etc.).
+            - Explain vulnerabilities (SQLi, XSS, Buffer Overflow) and mitigation strategies.
+            - Write simple snippets of code/scripts if asked (Python, Bash).
+            - Maintain a professional, helpful, and tech-savvy persona.
+            - IF ASKED FOR ILLEGAL ACTIONS: Decline politely but explain the *theoretical* mechanism for educational purposes only.`;
+
+            // Build Context
+            const conversation = messages.slice(-8).map(m => ({
+                role: m.role === 'model' ? 'assistant' : 'user' as const,
+                content: m.text
+            }));
+
+            const response = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    ...conversation,
+                    { role: 'user', content: userMsg.text }
+                ]
             });
 
-            if (response.text) {
-                responseText = response.text;
+            if (response.choices[0]?.message?.content) {
+                responseText = response.choices[0].message.content;
             }
         }
 
@@ -74,9 +80,10 @@ const AiChat: React.FC = () => {
         }]);
 
     } catch (error) {
+        console.error(error);
         setMessages(prev => [...prev, {
             role: 'model',
-            text: "Error: Unable to reach neural cloud. Please verify internet connection and API Key.",
+            text: "Error: Unable to reach OpenAI neural cloud. Please verify internet connection and API Key.",
             timestamp: new Date().toLocaleTimeString()
         }]);
     } finally {
@@ -101,7 +108,7 @@ const AiChat: React.FC = () => {
           </div>
           <div>
             <h3 className="font-orbitron font-bold text-lg">AI_SHERLY.exe</h3>
-            <p className="text-xs text-green-600">Secure Uplink • Gemini 2.5 Flash • Live</p>
+            <p className="text-xs text-green-600">Secure Uplink • OpenAI GPT-4o • Live</p>
           </div>
         </div>
         
