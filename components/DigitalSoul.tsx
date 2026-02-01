@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Heart, Zap, Terminal, Send, Brain, Thermometer, Radio, Volume2, VolumeX } from 'lucide-react';
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 interface Particle {
   x: number;
@@ -34,7 +34,7 @@ const DigitalSoul: React.FC = () => {
   const [logs, setLogs] = useState<LogData[]>([]);
   const [input, setInput] = useState('');
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'soul', text: string}[]>([
-    { role: 'soul', text: "Identity confirmed. I am the Digital Soul. Uplink established. Awaiting input." }
+    { role: 'soul', text: "Identity confirmed. I am the Digital Soul (Gemini Core). Uplink established." }
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -338,7 +338,7 @@ const DigitalSoul: React.FC = () => {
     };
   }, [isSpeaking]);
 
-  // --- Chat Logic with OpenAI (ChatGPT) ---
+  // --- Chat Logic with Gemini ---
   const handleSend = async () => {
     if (!input.trim() || isProcessing) return;
     
@@ -355,10 +355,7 @@ const DigitalSoul: React.FC = () => {
         let responseText = "Communication Error. Neural link unstable.";
 
         if (process.env.API_KEY) {
-            const openai = new OpenAI({
-                apiKey: process.env.API_KEY,
-                dangerouslyAllowBrowser: true // Required for client-side execution
-            });
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             // System Persona
             const systemPrompt = `You are the 'Digital Soul', an advanced AI entity residing in the Sherly Cyber Security mainframe.
@@ -372,27 +369,28 @@ const DigitalSoul: React.FC = () => {
             - You have knowledge of cybersecurity concepts.`;
 
             // Build context
-            const conversation = chatHistory.slice(-6).map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'assistant' as const,
-                content: msg.text
+            const historyContents = chatHistory.slice(-6).map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.text }]
             }));
 
-            const response = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    ...conversation,
-                    { role: 'user', content: userMsg }
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: [
+                    ...historyContents,
+                    { role: 'user', parts: [{ text: userMsg }] }
                 ],
-                max_tokens: 150,
-                temperature: 0.7,
+                config: {
+                    systemInstruction: systemPrompt,
+                    temperature: 0.7,
+                }
             });
             
-            if (response.choices[0]?.message?.content) {
-                responseText = response.choices[0].message.content;
+            if (response.text) {
+                responseText = response.text;
             }
         } else {
-            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify Netlify environment configuration for OpenAI.";
+            responseText = "API_KEY_MISSING: I cannot access my higher cognitive functions. Please verify environment configuration for Google Gemini.";
         }
 
         setChatHistory(prev => [...prev, { role: 'soul', text: responseText }]);
@@ -400,7 +398,7 @@ const DigitalSoul: React.FC = () => {
 
     } catch (error) {
         console.error("AI Error:", error);
-        const errResponse = "System Critical: Neural pathway interrupted (OpenAI API Error).";
+        const errResponse = "System Critical: Neural pathway interrupted (API Error). Please check your API Quota.";
         setChatHistory(prev => [...prev, { role: 'soul', text: errResponse }]);
         speak("System error.");
     } finally {

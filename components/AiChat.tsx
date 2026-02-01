@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, Wifi, ShieldAlert, Terminal } from 'lucide-react';
 import { ChatMessage } from '../types';
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 const AiChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -37,10 +37,7 @@ const AiChat: React.FC = () => {
         let responseText = "Connection lost. Please check API Key configuration.";
 
         if (process.env.API_KEY) {
-            const openai = new OpenAI({
-                apiKey: process.env.API_KEY,
-                dangerouslyAllowBrowser: true // Required for client-side execution
-            });
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             // System Persona
             const systemPrompt = `You are Sherly, a specialized Cyber Security AI Assistant.
@@ -55,21 +52,23 @@ const AiChat: React.FC = () => {
 
             // Build Context
             const conversation = messages.slice(-8).map(m => ({
-                role: m.role === 'model' ? 'assistant' : 'user' as const,
-                content: m.text
+                role: m.role === 'model' ? 'model' : 'user',
+                parts: [{ text: m.text }]
             }));
 
-            const response = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: systemPrompt },
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-pro-preview',
+                contents: [
                     ...conversation,
-                    { role: 'user', content: userMsg.text }
-                ]
+                    { role: 'user', parts: [{ text: userMsg.text }] }
+                ],
+                config: {
+                    systemInstruction: systemPrompt,
+                }
             });
 
-            if (response.choices[0]?.message?.content) {
-                responseText = response.choices[0].message.content;
+            if (response.text) {
+                responseText = response.text;
             }
         }
 
@@ -83,7 +82,7 @@ const AiChat: React.FC = () => {
         console.error(error);
         setMessages(prev => [...prev, {
             role: 'model',
-            text: "Error: Unable to reach OpenAI neural cloud. Please verify internet connection and API Key.",
+            text: "Error: Unable to reach neural cloud. Please verify internet connection and API Key.",
             timestamp: new Date().toLocaleTimeString()
         }]);
     } finally {
@@ -108,7 +107,7 @@ const AiChat: React.FC = () => {
           </div>
           <div>
             <h3 className="font-orbitron font-bold text-lg">AI_SHERLY.exe</h3>
-            <p className="text-xs text-green-600">Secure Uplink • OpenAI GPT-4o • Live</p>
+            <p className="text-xs text-green-600">Secure Uplink • Google Gemini • Live</p>
           </div>
         </div>
         
