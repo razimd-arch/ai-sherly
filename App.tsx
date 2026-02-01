@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Shield, Activity, Terminal as TerminalIcon, 
   Zap, FileText, Info, Globe, Lock, Search, 
   Wifi, Bot, Database, Menu, X, ChevronRight, Server, Eye, Cpu, Radio, Layers,
-  Bug, User, Laptop, Key, Map as MapIcon, Crosshair, Skull, UserCheck, Users, Target, Code, ShieldAlert, LogOut
+  Bug, User, Laptop, Key, Map as MapIcon, Crosshair, Skull, UserCheck, Users, Target, Code, ShieldAlert, LogOut,
+  Disc, FolderOpen, Smartphone, Share2
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -176,8 +177,9 @@ const App: React.FC = () => {
       return <LoginScreen onLogin={handleLogin} />;
   }
 
+  // Use h-[100dvh] for better mobile support (addresses the "can't move" issue on mobile browsers)
   return (
-    <div className="flex h-screen bg-black text-green-400 overflow-hidden relative font-mono selection:bg-green-500 selection:text-black">
+    <div className="flex h-[100dvh] bg-black text-green-400 overflow-hidden relative font-mono selection:bg-green-500 selection:text-black">
       
       {/* Desktop Sidebar */}
       <aside className="w-64 z-30 bg-black border-r border-green-900 flex flex-col hidden md:flex shrink-0">
@@ -465,25 +467,85 @@ const DashboardView: React.FC<any> = ({ stats, networkData, logs, honeypotData, 
 const ToolsView: React.FC<{onLaunch: (t: Tool) => void}> = ({ onLaunch }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Generating 100 Tools List (Sampled)
-  const tools: Tool[] = [
-    { id: 'nmap', name: "Nmap", description: "Network Mapper - The standard for network discovery.", category: "Recon", icon: <Globe />, command: 'nmap -sS -A 103.56.x.x' },
+  // REAL-WORLD CYBERSECURITY TOOLS LIST
+  const realTools: Tool[] = [
+    // RECONNAISSANCE
+    { id: 'nmap', name: "Nmap", description: "Network exploration and security auditing.", category: "Recon", icon: <Globe />, command: 'nmap -sV -A target' },
+    { id: 'shodan', name: "Shodan CLI", description: "Search engine for Internet-connected devices.", category: "Recon", icon: <Search />, command: 'shodan host target.com' },
     { id: 'recon-ng', name: "Recon-ng", description: "Full-featured web reconnaissance framework.", category: "Recon", icon: <Search />, command: 'recon-ng' },
-    { id: 'metasploit', name: "Metasploit", description: "Penetration testing framework.", category: "Exploit", icon: <Zap />, command: 'msfconsole' },
-    { id: 'wireshark', name: "Wireshark", description: "Network protocol analyzer.", category: "Sniffing", icon: <Activity />, command: 'wireshark' },
-    { id: 'john', name: "John the Ripper", description: "Advanced Password cracker.", category: "Cracking", icon: <Lock />, command: 'john --wordlist=rockyou.txt hash.txt' },
-    { id: 'burp', name: "Burp Suite", description: "Web vulnerability scanner.", category: "Web", icon: <Search />, command: 'java -jar burpsuite.jar' },
-    { id: 'hydra', name: "Hydra", description: "Parallelized login cracker.", category: "Cracking", icon: <Lock />, command: 'hydra -l user -P pass.txt ssh://target' },
-    { id: 'aircrack', name: "Aircrack-ng", description: "WiFi network security auditing.", category: "Wireless", icon: <Wifi />, command: 'aircrack-ng capture.cap' },
+    { id: 'maltego', name: "Maltego", description: "Interactive data mining and link analysis.", category: "Recon", icon: <Activity />, command: './maltego' },
+    { id: 'spiderfoot', name: "SpiderFoot", description: "Open source intelligence (OSINT) automation.", category: "Recon", icon: <Bot />, command: 'spiderfoot -l :5001' },
+    { id: 'amass', name: "Amass", description: "In-depth DNS enumeration and attack surface mapping.", category: "Recon", icon: <Globe />, command: 'amass enum -d target.com' },
+    { id: 'theharvester', name: "theHarvester", description: "E-mail, subdomain and people harvesting tool.", category: "Recon", icon: <User />, command: 'theHarvester -d target.com -b google' },
+    
+    // EXPLOITATION
+    { id: 'metasploit', name: "Metasploit", description: "Penetration testing software for exploits.", category: "Exploit", icon: <Zap />, command: 'msfconsole' },
+    { id: 'cobaltstrike', name: "Cobalt Strike", description: "Adversary simulation and Red Team operations.", category: "Exploit", icon: <Target />, command: './teamserver' },
+    { id: 'empire', name: "PowerShell Empire", description: "Post-exploitation framework.", category: "Exploit", icon: <TerminalIcon />, command: './empire' },
+    { id: 'armitage', name: "Armitage", description: "GUI for Metasploit.", category: "Exploit", icon: <Zap />, command: 'armitage' },
+    { id: 'sqlmap', name: "SQLMap", description: "Automatic SQL injection and database takeover.", category: "Exploit", icon: <Database />, command: 'sqlmap -u "http://target.com?id=1" --dbs' },
+    { id: 'beef', name: "BeEF", description: "Browser Exploitation Framework.", category: "Exploit", icon: <Globe />, command: './beef' },
+    { id: 'commando', name: "Commando VM", description: "Windows-based penetration testing distro.", category: "Exploit", icon: <Laptop />, command: 'start-vm' },
+
+    // SNIFFING & SPOOFING
+    { id: 'wireshark', name: "Wireshark", description: "World's foremost network protocol analyzer.", category: "Sniffing", icon: <Activity />, command: 'wireshark' },
+    { id: 'tcpdump', name: "Tcpdump", description: "Command-line packet analyzer.", category: "Sniffing", icon: <TerminalIcon />, command: 'tcpdump -i eth0' },
+    { id: 'bettercap', name: "Bettercap", description: "Swiss army knife for network attacks and monitoring.", category: "Sniffing", icon: <Wifi />, command: 'bettercap' },
+    { id: 'ettercap', name: "Ettercap", description: "Comprehensive suite for man-in-the-middle attacks.", category: "Sniffing", icon: <Layers />, command: 'ettercap -G' },
+    { id: 'responder', name: "Responder", description: "LLMNR, NBT-NS and MDNS poisoner.", category: "Sniffing", icon: <Radio />, command: 'python Responder.py -I eth0' },
+
+    // PASSWORD CRACKING
+    { id: 'john', name: "John the Ripper", description: "Fast password cracker.", category: "Cracking", icon: <Lock />, command: 'john hash.txt' },
+    { id: 'hashcat', name: "Hashcat", description: "World's fastest password recovery utility.", category: "Cracking", icon: <Cpu />, command: 'hashcat -m 0 -a 0 hash.txt rockyou.txt' },
+    { id: 'hydra', name: "Hydra", description: "Parallelized login cracker (SSH, FTP, etc).", category: "Cracking", icon: <Key />, command: 'hydra -l user -P pass.txt ssh://target' },
+    { id: 'medusa', name: "Medusa", description: "Speedy, parallel, and modular login brute-forcer.", category: "Cracking", icon: <Lock />, command: 'medusa -h target -u admin -P pass.txt -M ssh' },
+    { id: 'mimikatz', name: "Mimikatz", description: "Extracts plain-texts passwords, hash, PIN code from memory.", category: "Cracking", icon: <Users />, command: 'mimikatz.exe' },
+    { id: 'ophcrack', name: "Ophcrack", description: "Windows password cracker based on rainbow tables.", category: "Cracking", icon: <Disc />, command: 'ophcrack' },
+
+    // WEB SCANNERS
+    { id: 'burp', name: "Burp Suite", description: "Platform for performing security testing of web applications.", category: "Web", icon: <Globe />, command: 'burpsuite' },
+    { id: 'owaspzap', name: "OWASP ZAP", description: "Integrated penetration testing tool for web apps.", category: "Web", icon: <ShieldAlert />, command: 'zap.sh' },
+    { id: 'nikto', name: "Nikto", description: "Web server scanner.", category: "Web", icon: <Search />, command: 'nikto -h target.com' },
+    { id: 'wpscan', name: "WPScan", description: "WordPress security scanner.", category: "Web", icon: <Bug />, command: 'wpscan --url target.com' },
+    { id: 'dirb', name: "Dirb", description: "Web content scanner (directory bruteforce).", category: "Web", icon: <FolderOpen />, command: 'dirb http://target.com' },
+    { id: 'gobuster', name: "Gobuster", description: "Directory/File, DNS and VHost busting tool.", category: "Web", icon: <TerminalIcon />, command: 'gobuster dir -u http://target.com -w list.txt' },
+
+    // WIRELESS
+    { id: 'aircrack', name: "Aircrack-ng", description: "WiFi network security auditing suite.", category: "Wireless", icon: <Wifi />, command: 'aircrack-ng' },
+    { id: 'kismet', name: "Kismet", description: "Wireless network detector, sniffer, and intrusion detection system.", category: "Wireless", icon: <Radio />, command: 'kismet' },
+    { id: 'wifite', name: "Wifite", description: "Automated wireless attack tool.", category: "Wireless", icon: <Wifi />, command: 'wifite' },
+    { id: 'fern', name: "Fern WiFi Cracker", description: "Wireless security auditing software.", category: "Wireless", icon: <Lock />, command: 'fern-wifi-cracker' },
+
+    // FORENSICS & REVERSE ENGINEERING
     { id: 'autopsy', name: "Autopsy", description: "Digital forensics platform.", category: "Forensics", icon: <Search />, command: 'autopsy' },
-    { id: 'ghidra', name: "Ghidra", description: "Software reverse engineering suite by NSA.", category: "Reverse", icon: <Cpu />, command: './ghidraRun' },
+    { id: 'volatility', name: "Volatility", description: "Memory forensics framework.", category: "Forensics", icon: <Cpu />, command: 'vol.py -f image.mem imageinfo' },
+    { id: 'ghidra', name: "Ghidra", description: "Software reverse engineering suite (NSA).", category: "Reverse", icon: <Code />, command: './ghidraRun' },
+    { id: 'ida', name: "IDA Pro", description: "Multi-processor disassembler and debugger.", category: "Reverse", icon: <Bug />, command: 'ida64' },
+    { id: 'radare2', name: "Radare2", description: "Unix-like reverse engineering framework.", category: "Reverse", icon: <TerminalIcon />, command: 'r2 target_bin' },
+    
+    // VULNERABILITY SCANNERS
+    { id: 'nessus', name: "Nessus", description: "Proprietary vulnerability scanner.", category: "Scanner", icon: <Activity />, command: '/etc/init.d/nessusd start' },
+    { id: 'openvas', name: "OpenVAS", description: "Full-featured vulnerability scanner.", category: "Scanner", icon: <Shield />, command: 'openvas-start' },
+    { id: 'nexpose', name: "Nexpose", description: "Vulnerability management software.", category: "Scanner", icon: <Search />, command: './nexpose' },
+
+    // MOBILE
+    { id: 'mobsf', name: "MobSF", description: "Mobile Security Framework (Android/iOS).", category: "Mobile", icon: <Smartphone />, command: './run.sh' },
+    { id: 'frida', name: "Frida", description: "Dynamic instrumentation toolkit.", category: "Mobile", icon: <Code />, command: 'frida -U target_app' },
+    
+    // POST EXPLOITATION & LATERAL MOVEMENT
+    { id: 'bloodhound', name: "BloodHound", description: "Active Directory trust relationship analysis.", category: "Post-Exp", icon: <Share2 />, command: './BloodHound' },
+    { id: 'crackmapexec', name: "CrackMapExec", description: "Post-exploitation tool for pentesting networks.", category: "Post-Exp", icon: <Server />, command: 'cme smb 192.168.1.0/24' },
   ];
 
-  const filteredTools = tools.filter(t => 
-    t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    t.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const tools = realTools;
+
+  const filteredTools = useMemo(() => {
+    return tools.filter(t => 
+        t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        t.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [searchTerm]);
 
   return (
     <div className="flex flex-col h-full">
@@ -493,14 +555,14 @@ const ToolsView: React.FC<{onLaunch: (t: Tool) => void}> = ({ onLaunch }) => {
             <Search className="absolute left-3 top-2.5 text-gray-500" size={18} />
             <input 
               type="text" 
-              placeholder="Search Tool Database (e.g., 'wifi', 'scan', 'password')" 
+              placeholder="Search Database (e.g., 'wifi', 'scan', 'password')..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-black border border-green-900 rounded pl-10 pr-4 py-2 text-green-400 placeholder-green-800 focus:border-green-500 focus:outline-none"
             />
          </div>
          <div className="text-xs text-gray-500 font-mono hidden md:block">
-            DATABASE: {tools.length} TOOLS LOADED
+            DATABASE: {tools.length} PREMIUM TOOLS LOADED
          </div>
       </div>
 
@@ -517,13 +579,14 @@ const ToolsView: React.FC<{onLaunch: (t: Tool) => void}> = ({ onLaunch }) => {
                     tool.category === 'Recon' ? 'bg-blue-900/40 text-blue-400' :
                     tool.category === 'Web' ? 'bg-orange-900/40 text-orange-400' :
                     tool.category === 'Cracking' ? 'bg-red-900/40 text-red-400' :
+                    tool.category === 'Exploit' ? 'bg-purple-900/40 text-purple-400' :
                     'bg-gray-800 text-gray-400'
                  }`}>{tool.category}</span>
               </div>
               <h4 className="font-bold text-sm text-white mb-1 font-orbitron truncate">{tool.name}</h4>
               <p className="text-xs text-gray-400 mb-auto line-clamp-2">{tool.description}</p>
               <div className="flex items-center text-[10px] text-green-500 font-bold opacity-60 group-hover:opacity-100 transition-opacity mt-2">
-                 <TerminalIcon size={10} className="mr-1" /> RUN SIMULATION
+                 <TerminalIcon size={10} className="mr-1" /> LAUNCH CLI
               </div>
             </div>
           ))}
@@ -539,7 +602,7 @@ const ToolsView: React.FC<{onLaunch: (t: Tool) => void}> = ({ onLaunch }) => {
   );
 };
 
-// ... DocsView, AboutView, StatCard, ResourceBar remain the same but ensure they are included if not changing ...
+// ... DocsView, AboutView, StatCard, ResourceBar remain the same ...
 const DocsView = () => (
     <div className="glass-panel p-4 md:p-8 rounded-lg h-full overflow-y-auto border border-green-900 bg-black/40">
       <div className="flex items-center gap-3 mb-6 border-b border-gray-700 pb-4">
@@ -566,7 +629,6 @@ const AboutView = () => (
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
-             {/* ... Hardware & Software Specs ... */}
              <div className="bg-gray-950/50 p-5 rounded-lg border border-gray-800 hover:border-green-900/50 transition-colors">
                 <h4 className="text-white font-orbitron text-sm mb-4 border-b border-gray-800 pb-2 flex justify-between items-center">
                    <span>HARDWARE ARCHITECTURE</span>
@@ -577,7 +639,6 @@ const AboutView = () => (
                       <span className="text-gray-500">PROCESSOR</span>
                       <span className="text-green-300">AMD EPYC™ 9654 (96-Core) @ 3.7GHz</span>
                    </li>
-                   {/* ... more list items ... */}
                 </ul>
              </div>
           </div>

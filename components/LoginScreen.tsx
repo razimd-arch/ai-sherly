@@ -12,7 +12,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const [status, setStatus] = useState<'idle' | 'authenticating' | 'success' | 'error'>('idle');
   const [bootSequence, setBootSequence] = useState<string[]>([]);
 
-  // Simulated Boot Sequence Animation
+  // Simulated Boot Sequence Animation (Speeded up)
   useEffect(() => {
     const steps = [
       "INITIALIZING SECURE KERNEL...",
@@ -23,6 +23,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     ];
     
     let i = 0;
+    // Faster interval (100ms instead of 400ms) for snappy loading
     const interval = setInterval(() => {
       if (i < steps.length) {
         setBootSequence(prev => [...prev, steps[i]]);
@@ -30,7 +31,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       } else {
         clearInterval(interval);
       }
-    }, 400);
+    }, 100);
 
     return () => clearInterval(interval);
   }, []);
@@ -39,13 +40,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     e.preventDefault();
     if (!username || !password) {
         setStatus('error');
-        setTimeout(() => setStatus('idle'), 2000);
+        setTimeout(() => setStatus('idle'), 1500);
         return;
     }
 
     setStatus('authenticating');
 
-    // Simulate Network Delay & Auth Check
+    // Reduced simulation delay to make it feel responsive
     setTimeout(() => {
       // In a real app, validate password here. 
       // For this demo, we accept any input to let users try it.
@@ -53,23 +54,24 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         setStatus('success');
         setTimeout(() => {
             onLogin(username);
-        }, 1500);
+        }, 800);
       } else {
         setStatus('error');
-        setTimeout(() => setStatus('idle'), 2000);
+        setTimeout(() => setStatus('idle'), 1500);
       }
-    }, 2000);
+    }, 800);
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-black text-green-500 font-mono flex flex-col items-center justify-center overflow-hidden p-4">
+    // Changed overflow-hidden to overflow-y-auto to prevent clipping on small screens
+    <div className="relative min-h-screen w-full bg-black text-green-500 font-mono flex flex-col items-center justify-center overflow-y-auto p-4">
       <MatrixRain />
       
       {/* Background Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/90 to-black z-10 pointer-events-none"></div>
 
       {/* Login Card */}
-      <div className="relative z-20 w-full max-w-md bg-gray-900/80 backdrop-blur-md border border-green-900/50 rounded-xl shadow-[0_0_50px_rgba(0,255,65,0.15)] p-6 md:p-8 flex flex-col gap-6 animate-in fade-in zoom-in duration-500">
+      <div className="relative z-20 w-full max-w-md bg-gray-900/80 backdrop-blur-md border border-green-900/50 rounded-xl shadow-[0_0_50px_rgba(0,255,65,0.15)] p-6 md:p-8 flex flex-col gap-6 animate-in fade-in zoom-in duration-300">
         
         {/* Header */}
         <div className="text-center border-b border-green-900/50 pb-6">
